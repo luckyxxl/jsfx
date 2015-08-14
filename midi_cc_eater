@@ -1,0 +1,7 @@
+desc:midi cc eater
+
+@block
+while (midirecv(offset, msg1, msg2)) (
+  (msg1 & 0xF0) != 0xB0 ? midisend(offset, msg1, msg2);
+ );
+

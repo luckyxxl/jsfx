@@ -1,0 +1,64 @@
+desc:peak meter
+
+@init
+ext_noinit = 1;
+
+value = 0; peak = 1; peak_timeout = 2; clip = 3;
+left = 0; right = 4;
+
+dbrange_max = 0;
+dbrange_min = -60;
+spacing = 1/20;
+
+@sample
+function dosample(ch, _spl) local(s) (
+  s = abs(_spl);
+  ch[value] = max(ch[value], s);
+  ch[peak_timeout] -= 1/srate;
+  ch[peak_timeout] <= 0 || s > ch[peak] ? (
+    ch[peak] = s;
+    ch[peak_timeout] = 1;
+  );
+  ch[clip] = max(ch[clip], s);
+);
+
+dosample(left, spl0);
+dosample(right, spl1);
+
+@gfx
+rect_width = ceil((gfx_w-gfx_w*spacing)/2);
+rect_height = gfx_h-gfx_texth;
+
+function todb(x) (
+  2*10*log10(x);
+);
+
+function toh(v) (
+  min(max(todb(v)/(dbrange_max-dbrange_min)+1,0),1);
+);
+
+function drawmeter(x, ch) local(h) (
+  gfx_r=0; gfx_g=1; gfx_b=0;
+  
+  h = toh(ch[value]);
+  gfx_rect(x, gfx_h-h*rect_height, rect_width, ceil(h*rect_height));
+  h = toh(ch[peak]);  
+  gfx_rect(x, gfx_h-h*rect_height, rect_width, 2);
+  ch[value] = 0;
+  
+  gfx_r=1; gfx_g=0; gfx_b=0;
+  ch[clip] >= 1 ? (
+    gfx_rect(x, 0, rect_width, gfx_texth);
+  );
+  
+  gfx_r=1; gfx_g=1; gfx_b=1;
+  gfx_x=x; gfx_y=0;
+  gfx_printf("%.1f", todb(ch[clip]));
+);
+
+drawmeter(0, left);
+drawmeter(rect_width+gfx_w*spacing, right);
+
+mouse_cap & 1 && mouse_y < gfx_texth ? (
+  left[clip] = right[clip] = 0;
+);
