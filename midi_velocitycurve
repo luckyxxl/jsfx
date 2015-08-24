@@ -1,0 +1,43 @@
+desc:MIDI Velocity Curve
+
+slider1:0<0,5,1{linear,pow,invpow,exp,invexp,user}>curve
+slider2:1<0,10,0.01>alpha
+
+@init
+f = 0;
+
+@serialize
+file_mem(0, f, 128);
+
+@slider
+i = 0;
+loop(128,
+  x = i / 127;
+  slider1 == 0 ? y = x * slider2:
+  slider1 == 1 ? y = pow(x, slider2) :
+  slider1 == 2 ? y = 1 - pow(1 - x, slider2) :
+  slider1 == 3 ? y = exp((x - 1) * slider2);
+  slider1 == 4 ? y = 1 - exp(-slider2 * x);
+  slider1 != 5 ? f[i] = min(max(y, 0.0), 1.0) * 127;
+  i += 1;
+);
+
+@gfx
+gfx_r = gfx_g = gfx_b = 1;
+gfx_x = 0; gfx_y = (1-f[0]/127) * (gfx_h-1);
+x = 1;
+loop(127,
+  gfx_lineto(x/127 * gfx_w,(1-f[x]/127) * (gfx_h-1));
+  x+=1;
+);
+
+//TODO: drag
+slider1 == 5 && mouse_cap & 0x1 ? (
+  f[mouse_x / gfx_w * 127] = min(max((gfx_h - mouse_y) / gfx_h * 127, 0), 127);
+);
+
+@block
+while(midirecv(o,m1,m2,m3)) (
+  m1&0xF0 == 0x90 || m1&0xF0 == 0x80 ? m3 = f[m3];
+  midisend(o,m1,m2,m3);
+);
