@@ -1,4 +1,4 @@
-desc:midi mono delay
+desc:MIDI Mono Delay
 
 slider1:0<0,10,0.001>time (0 for beat synced)
 slider2:1<0,16,0.25>beats

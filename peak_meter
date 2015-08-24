@@ -1,4 +1,4 @@
-desc:peak meter
+desc:Peak Meter
 
 @init
 ext_noinit = 1;

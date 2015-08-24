@@ -1,4 +1,4 @@
-desc:midi cc eater
+desc:MIDI CC Eater
 
 @block
 while (midirecv(offset, msg1, msg2)) (
