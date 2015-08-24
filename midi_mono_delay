@@ -1,0 +1,66 @@
+desc:midi mono delay
+
+slider1:0<0,10,0.001>time (0 for beat synced)
+slider2:1<0,16,0.25>beats
+slider3:-25<-128,128,1>feedback (midi velocity)
+
+@init
+rec = 0;
+note = 0;
+velocity = 0;
+note_length = 0;
+
+note_playing = 0;
+
+o_note = 0;
+o_delay = 0;
+
+clock = 0;
+
+@block
+to_delay = (slider1 ? slider1 : 60 / tempo * slider2) * srate;
+
+function killnote(o) (
+  rec || note_playing ? (
+    midisend(o, 0x80, note);
+    note_playing = 0;
+  );
+);
+
+//handle midi events
+while(midirecv(o, msg1, msg2, msg3)) (
+  send = 1;
+  msg1 & 0xF0 == 0x90 ? ( //note on
+    killnote(o);
+    note = msg2;
+    velocity = msg3;
+    note_length = clock + o; //just temporary during record
+    rec = 1;
+    o_delay = to_delay; //reset delay timer
+  ) : msg1 & 0xF0 == 0x80 && rec && msg2 == note ? ( //note off
+    note_length = clock + o - note_length;
+    note_length_ms = note_length / srate;
+    rec = 0;
+    send = !note_playing;
+  );
+  send ? midisend(o, msg1, msg2, msg3);
+);
+
+//send delay
+velocity > -slider3 && o_delay < samplesblock ? ( //play note
+  velocity += slider3;
+  killnote(o_delay);
+  midisend(o_delay, 0x90, note, velocity);
+  note_playing = 1;
+  o_note = note_length;
+  o_delay += to_delay;
+);
+note_playing && o_note < samplesblock ? ( //stop note
+  midisend(o_note, 0x80, note);
+  note_playing = 0;
+);
+
+o_delay -= samplesblock;
+o_note -= samplesblock;
+
+clock += samplesblock;
