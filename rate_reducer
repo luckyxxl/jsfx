@@ -1,0 +1,49 @@
+desc: Rate Reducer
+
+slider1:rate=1<1,500,1>Rate
+slider2:phase=0<0,1>Phase
+slider3:decaymode=0<0,2,1{None,Pulse,Saw}>Decay Mode
+slider4:decaytime=1<1,500,1>Decay Time
+
+@slider
+timer = 0;
+channels = 0;
+channels[0] = 2;
+channels[1] = 130;
+memset(2, 0, 2*128);
+
+channels[1][1] = floor(rate * phase);
+
+@sample
+
+function decay(s, t)
+(
+  decaymode == 0 ? t == 0 ? s : 0 :
+  decaymode == 1 ? t < decaytime ? s : 0 :
+  decaymode == 2 ? sign(s) * max(abs(s) - t / decaytime, 0);
+);
+
+function process_channel(i)
+local(m)
+(
+  /*
+  vars:
+  0: stored sample value
+  1: current sample playing time (in samples)
+  */
+  
+  m = channels[i];
+  
+  m[1] == rate ?
+  (
+    m[0] = spl(i);
+    m[1] = 0;
+  );
+  
+  spl(i) = decay(m[0], m[1]);
+  
+  m[1] += 1;
+);
+
+process_channel(0);
+process_channel(1);
