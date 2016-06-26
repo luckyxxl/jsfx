@@ -1,0 +1,170 @@
+/*
+TODO: MIDI state handling: if offset == 0 on note off, it breaks...
+*/
+
+desc:synth test 1
+
+slider1:set_waveform=0<0,1,1{Sine,Pulse}>Waveform
+
+@init
+pi = 3.1415926535897931;
+
+function kill()
+(
+  this.state = 0;
+);
+
+voice0.kill();
+voice1.kill();
+voice2.kill();
+voice3.kill();
+voice4.kill();
+voice5.kill();
+voice6.kill();
+voice7.kill();
+
+
+function note_to_frequency(note)
+(
+  440 * pow(pow(2, 1/12), note - 0x45);
+);
+
+@block
+
+// clean up released voices
+
+function cleanup_released()
+(
+  this.released_time >= 0.1 ? this.kill();
+);
+
+voice0.cleanup_released();
+voice1.cleanup_released();
+voice2.cleanup_released();
+voice3.cleanup_released();
+voice4.cleanup_released();
+voice5.cleanup_released();
+voice6.cleanup_released();
+voice7.cleanup_released();
+
+// handle midi
+
+function note_on(offset, note, velocity)
+(
+  this.state == 0 ?
+  (
+    this.state = 1; // 0 = off, 1 = on, 2 = released
+
+    this.note = note;
+    this.velocity = velocity;
+    this.time = -offset / srate;
+    this.released_time = 0;
+    
+    this.phase = 0;
+    
+    1;
+  ) : 0;
+);
+
+function note_off(offset, note, velocity)
+(
+  this.state == 1 && this.released_time == 0 && this.note == note ?
+  (
+    this.released_time = -offset / srate;
+  ) : 0;
+);
+
+while(midirecv(offset, msg1, msg2, msg3))
+(
+  msg1 == 0x80 ?
+  (
+    !voice0.note_off(offset, msg2, msg3) ?
+    !voice1.note_off(offset, msg2, msg3) ?
+    !voice2.note_off(offset, msg2, msg3) ?
+    !voice3.note_off(offset, msg2, msg3) ?
+    !voice4.note_off(offset, msg2, msg3) ?
+    !voice5.note_off(offset, msg2, msg3) ?
+    !voice6.note_off(offset, msg2, msg3) ?
+    !voice7.note_off(offset, msg2, msg3);
+  );
+  msg1 == 0x90 ?
+  (
+    !voice0.note_on(offset, msg2, msg3) ?
+    !voice1.note_on(offset, msg2, msg3) ?
+    !voice2.note_on(offset, msg2, msg3) ?
+    !voice3.note_on(offset, msg2, msg3) ?
+    !voice4.note_on(offset, msg2, msg3) ?
+    !voice5.note_on(offset, msg2, msg3) ?
+    !voice6.note_on(offset, msg2, msg3) ?
+    !voice7.note_on(offset, msg2, msg3);
+  );
+);
+
+@sample
+
+function update_state()
+(
+  this.state == 1 ?
+  (
+    this.time += 1 / srate;
+    this.released_time < 0 ?
+    (
+      this.released_time += 1 / srate;
+      this.released_time >= 0 ? this.state = 2;
+    );
+  )
+  :
+  this.state == 2 ?
+  (
+    this.released_time += 1 / srate;
+  );
+);
+
+function run()
+(
+  this.update_state();
+  
+  this.state == 1 && this.time >= 0 ?
+  (
+    this.phase += 1 / srate * 2 * pi * note_to_frequency(this.note);
+    while(this.phase > 2 * pi)( this.phase -= 2 * pi );
+    
+    set_waveform == 0 ? sin(this.phase) * 0.25 :
+    set_waveform == 1 ? (this.phase >= pi ? 1 : -1) * 0.25;
+    
+  ) : 0;
+);
+
+spl0 = spl1 =
+  voice0.run() +
+  voice1.run() +
+  voice2.run() +
+  voice3.run() +
+  voice4.run() +
+  voice5.run() +
+  voice6.run() +
+  voice7.run();
+
+@gfx
+
+function draw_debug()
+(
+  gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+  
+  gfx_x = 0;
+  gfx_drawnumber(this.time, 6);
+  gfx_x += 10;
+  gfx_drawnumber(this.released_time, 6);
+  gfx_x += 20;
+  gfx_drawnumber(this.phase, 6);
+);
+
+gfx_y = 10; voice0.draw_debug();
+gfx_y = 20; voice1.draw_debug();
+gfx_y = 30; voice2.draw_debug();
+gfx_y = 40; voice3.draw_debug();
+gfx_y = 50; voice4.draw_debug();
+gfx_y = 60; voice5.draw_debug();
+gfx_y = 70; voice6.draw_debug();
+gfx_y = 80; voice7.draw_debug();
+
