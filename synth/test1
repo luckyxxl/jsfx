@@ -1,6 +1,6 @@
 desc:synth test 1
 
-slider1:set_waveform=0<0,1,1{Sine,Pulse}>Waveform
+slider1:set_waveform=0<0,2,2{Sine,Pulse,Saw}>Waveform
 
 @init
 pi = 3.1415926535897931;
@@ -144,11 +144,21 @@ function osc_run() local(result, i)
     (
       i = 1;
       loop(srate / (4*this.frequency) + 0.5,
-        result += 4 / pi * sin((2*i-1)*this.phase) / (2*i-1);
+        result += sin((2*i-1)*this.phase) / (2*i-1);
         i += 1;
       );
+      result = 4 / pi * result;
+    )
+    : set_waveform == 2 ?
+    (
+      i = 1;
+      loop(srate / (2*this.frequency),
+        result += (i % 2 ? -1 : +1) * sin(i*this.phase) / i;
+        i += 1;
+      );
+      result = -1 * 2 / pi * result;
     );
-      
+    
     this.phase += 1 / srate * 2 * pi * this.frequency;
     while(this.phase > 2 * pi)
     (
