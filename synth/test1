@@ -47,7 +47,8 @@ function voice_note_on(offset, note, velocity)
     this.note = note;
     this.velocity = velocity;
     
-    this.phase = 0;
+    this.osc1.phase = 0;
+    this.osc1.frequency = note_to_frequency(this.note);
     
     1;
   ) : 0;
@@ -128,22 +129,44 @@ function voice_update_state()
   );
 );
 
+function osc_run() local(result, i)
+(
+  result = 0;
+  
+  this..time >= 0 && (this..released_time < 0 || this.phase != 0) ?
+  (
+    set_waveform == 0 ?
+    (
+      result = sin(this.phase)
+    )
+    :
+    set_waveform == 1 ?
+    (
+      i = 1;
+      loop(srate / (4*this.frequency) + 0.5,
+        result += 4 / pi * sin((2*i-1)*this.phase) / (2*i-1);
+        i += 1;
+      );
+    );
+      
+    this.phase += 1 / srate * 2 * pi * this.frequency;
+    while(this.phase > 2 * pi)
+    (
+      this.phase -= 2 * pi;
+      this..released_time >= 0 ? this.phase = 0;
+    );
+  );
+  
+  result;
+);
+
 function voice_run() local(result)
 (
   result = 0;
   
-  this.state && this.time >= 0 && (this.released_time < 0 || this.phase != 0) ?
+  this.state ?
   (
-    result =
-      set_waveform == 0 ? sin(this.phase) * 0.25 :
-      set_waveform == 1 ? (this.phase >= pi ? 1 : -1) * 0.25;
-    
-    this.phase += 1 / srate * 2 * pi * note_to_frequency(this.note);
-    while(this.phase > 2 * pi)
-    (
-      this.phase -= 2 * pi;
-      this.released_time >= 0 ? this.phase = 0;
-    );
+    result = this.osc1.osc_run() * 0.25;
   );
   
   this.voice_update_state();
@@ -172,7 +195,7 @@ function draw_debug()
   gfx_x += 10;
   gfx_drawnumber(this.released_time, 6);
   gfx_x += 20;
-  gfx_drawnumber(this.phase, 6);
+  gfx_drawnumber(this.osc1.phase, 6);
 );
 
 gfx_y = 10; voice0.draw_debug();
