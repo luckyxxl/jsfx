@@ -1,0 +1,17 @@
+desc:time delay
+
+slider1:0<0,1000,1>time (ms)
+
+@slider
+cursor = 0;
+buffer = 0;
+buffer_length = floor(srate*slider1/1000.0);
+
+@sample
+buffer[cursor*2+0] = spl0;
+buffer[cursor*2+1] = spl1;
+
+spl0 = buffer[((cursor+1)%buffer_length)*2+0];
+spl1 = buffer[((cursor+1)%buffer_length)*2+1];
+
+cursor = (cursor + 1) % buffer_length;
