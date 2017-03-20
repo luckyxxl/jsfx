@@ -1,5 +1,7 @@
 desc:Peak Meter
 
+options:no_meter
+
 @init
 ext_noinit = 1;
 
