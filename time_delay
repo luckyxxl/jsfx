@@ -6,7 +6,7 @@ slider1:0<0,1000,1>time (ms)
 cursor = 0;
 buffer = 0;
 buffer_length = floor(srate*slider1/1000.0);
-freembuf(buffer_length);
+freembuf(2*buffer_length);
 
 @sample
 buffer[cursor*2+0] = spl0;
