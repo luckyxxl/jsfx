@@ -1,0 +1,263 @@
+desc:clean synth
+
+slider1:set_waveform=0<0,3,0{Sine,Triangle,Saw,Pulse}>Waveform
+slider2:set_volume=-12<-120,6,1>Volume
+slider3:set_attack=0<0,2,.01>Attack
+slider4:set_decay=0<0,2,.01>Decay
+slider5:set_sustain=0<-120,0,1>Sustain
+slider6:set_release=0<0,2,.01>Release
+
+@init
+pi = 3.1415926535897931;
+
+function voice_kill()
+(
+  this.state = 0;
+);
+
+voice0.voice_kill();
+voice1.voice_kill();
+voice2.voice_kill();
+voice3.voice_kill();
+voice4.voice_kill();
+voice5.voice_kill();
+voice6.voice_kill();
+voice7.voice_kill();
+
+
+function note_to_frequency(note)
+(
+  440 * pow(pow(2, 1/12), note - 0x45);
+);
+
+@slider
+volume = set_volume == -120 ? 0 : 2^(set_volume/6);
+sustain = set_sustain == -120 ? 0 : 2^(set_sustain/6);
+
+@block
+
+function voice_cleanup_released()
+(
+  this.state ?
+  (
+    (set_release == 0 ? this.osc.phase == 0 : this.released_time >= set_release) ? this.voice_kill();
+  );
+);
+
+function voice_note_on(offset, note, velocity)
+(
+  !this.state ?
+  (
+    this.state = offset > 0 ? 1 : 2; // 0 = off, 1 = note not started yet (time < 0), 2 = on, 3 = note not released yet (released_time < 0), 4 = released
+    this.time = -offset / srate;
+    this.released_time = -1;
+    
+    this.note = note;
+    this.velocity = velocity;
+    
+    this.osc.phase = 0;
+    this.osc.frequency = note_to_frequency(this.note);
+    
+    1;
+  ) : 0;
+);
+
+function voice_note_off(offset, note, velocity)
+(
+  this.state && this.state < 3 && this.note == note ?
+  (
+    this.state == 1 ?
+    (
+      this.voice_kill(); // note just started in this block, ignore it...
+    )
+    :
+    (
+      this.state = offset > 0 ? 3 : 4;
+      this.released_time = -offset / srate;
+    );
+  );
+);
+
+voice0.voice_cleanup_released();
+voice1.voice_cleanup_released();
+voice2.voice_cleanup_released();
+voice3.voice_cleanup_released();
+voice4.voice_cleanup_released();
+voice5.voice_cleanup_released();
+voice6.voice_cleanup_released();
+voice7.voice_cleanup_released();
+
+// handle midi
+while(midirecv(offset, msg1, msg2, msg3))
+(
+  msg1 == 0x80 ?
+  (
+    voice0.voice_note_off(offset, msg2, msg3);
+    voice1.voice_note_off(offset, msg2, msg3);
+    voice2.voice_note_off(offset, msg2, msg3);
+    voice3.voice_note_off(offset, msg2, msg3);
+    voice4.voice_note_off(offset, msg2, msg3);
+    voice5.voice_note_off(offset, msg2, msg3);
+    voice6.voice_note_off(offset, msg2, msg3);
+    voice7.voice_note_off(offset, msg2, msg3);
+  );
+  msg1 == 0x90 ?
+  (
+    !voice0.voice_note_on(offset, msg2, msg3) ?
+    !voice1.voice_note_on(offset, msg2, msg3) ?
+    !voice2.voice_note_on(offset, msg2, msg3) ?
+    !voice3.voice_note_on(offset, msg2, msg3) ?
+    !voice4.voice_note_on(offset, msg2, msg3) ?
+    !voice5.voice_note_on(offset, msg2, msg3) ?
+    !voice6.voice_note_on(offset, msg2, msg3) ?
+    !voice7.voice_note_on(offset, msg2, msg3);
+  );
+);
+
+@sample
+
+function voice_update_state()
+(
+  this.state == 1 || this.state == 2 ?
+  (
+    this.time += 1 / srate;
+    this.time >= 0 ? this.state = 2;
+  )
+  :
+  this.state == 3 ?
+  (
+    this.time += 1 / srate;
+    this.released_time += 1 / srate;
+    this.released_time >= 0 ? this.state = 4;
+  )
+  :
+  this.state == 4 ?
+  (
+    this.released_time += 1 / srate;
+  );
+);
+
+function osc_run() local(result, i)
+(
+  result = 0;
+  
+  this..time >= 0 && (this..released_time < 0 || this.phase != 0 || set_release != 0) ?
+  (
+    set_waveform == 0 ?
+    (
+      result = sin(this.phase)
+    )
+    :
+    set_waveform == 1 ?
+    (
+      i = 0;
+      loop(srate / (4*this.frequency) - 0.5 + 1,
+        result += (i % 2 ? -1 : +1) * sin((2*i+1)*this.phase) / ((2*i+1)*(2*i+1));
+        i += 1;
+      );
+      result = 8 / (pi * pi) * result;
+    )
+    :
+    set_waveform == 2 ?
+    (
+      i = 1;
+      loop(srate / (2*this.frequency),
+        result += (i % 2 ? -1 : +1) * sin(i*this.phase) / i;
+        i += 1;
+      );
+      result = -1 * 2 / pi * result;
+    )
+    :
+    set_waveform == 3 ?
+    (
+      i = 1;
+      loop(srate / (4*this.frequency) + 0.5,
+        result += sin((2*i-1)*this.phase) / (2*i-1);
+        i += 1;
+      );
+      result = 4 / pi * result;
+    );
+    
+    this.phase += 1 / srate * 2 * pi * this.frequency;
+    while(this.phase > 2 * pi)
+    (
+      this.phase -= 2 * pi;
+      this..released_time >= 0 && set_release == 0 ? this.phase = 0;
+    );
+  );
+  
+  result;
+);
+
+function env_run()
+(
+  this..time < set_attack ?
+  (
+    this..time / set_attack;
+  )
+  :
+  this..time < set_attack + set_decay ?
+  (
+    1 - (this..time - set_attack) / set_decay * (1 - sustain);
+  )
+  :
+  this..released_time < 0 ?
+  (
+    sustain;
+  )
+  :
+  (
+    set_release == 0 ? sustain : // let the osc finish its phase to prevent click
+    (
+      max(1 - this..released_time / set_release, 0) * sustain;
+    );
+  );
+);
+
+function voice_run() local(result)
+(
+  result = 0;
+  
+  this.state ?
+  (
+    result = this.osc.osc_run() * volume * this.env.env_run();
+  );
+  
+  this.voice_update_state();
+  
+  result;
+);
+
+spl0 = spl1 =
+  voice0.voice_run() +
+  voice1.voice_run() +
+  voice2.voice_run() +
+  voice3.voice_run() +
+  voice4.voice_run() +
+  voice5.voice_run() +
+  voice6.voice_run() +
+  voice7.voice_run();
+
+@gfx
+
+function draw_debug()
+(
+  gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+  
+  gfx_x = 0;
+  gfx_drawnumber(this.time, 6);
+  gfx_x += 10;
+  gfx_drawnumber(this.released_time, 6);
+  gfx_x += 20;
+  gfx_drawnumber(this.osc.phase, 6);
+);
+
+gfx_y = 10; voice0.draw_debug();
+gfx_y = 20; voice1.draw_debug();
+gfx_y = 30; voice2.draw_debug();
+gfx_y = 40; voice3.draw_debug();
+gfx_y = 50; voice4.draw_debug();
+gfx_y = 60; voice5.draw_debug();
+gfx_y = 70; voice6.draw_debug();
+gfx_y = 80; voice7.draw_debug();
+
