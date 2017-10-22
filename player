@@ -1,0 +1,48 @@
+@init
+
+function get16th() ( floor(beat_position * 4); );
+
+last_tick = get16th();
+notes_playing = 0;
+
+function new_figure()
+(
+  figure_pos = 0;
+  figure_style = floor(rand(3));
+  figure_length = floor(rand(4)+1) * 4;
+);
+
+new_figure();
+
+@block
+
+function stop_all() local(i)
+(
+  i=0; loop(127,
+    notes_playing[i] ? midisend(0, 0x80, i, 0);
+    notes_playing[i] = 0;
+    i+=1;
+  );
+);
+
+function play(k)
+(
+  midisend(0, 0x90, k, 127);
+  notes_playing[k] = 1;
+);
+
+function tick()
+(
+  stop_all();
+  
+  figure_pos += 1;
+  figure_pos >= figure_length ? new_figure();
+  
+  figure_style == 0 ? play(floor(rand(24)) + 60);
+  figure_style == 1 ? play(figure_pos + 60);
+  figure_style == 2 ? play(60 - figure_pos);
+);
+
+current_tick = get16th();
+current_tick != last_tick ? tick();
+last_tick = current_tick;
