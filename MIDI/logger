@@ -1,0 +1,71 @@
+desc:logger
+
+@init
+send_sh201_request = 0;
+send_emx_request = 0;
+
+@block
+while((recv = midirecv_buf(offset, 0, 65536)) > 0)
+(
+  last_recv = recv;
+);
+
+function sh201_sum(b, s, l) local(i, sum)
+(
+  i = 0;
+  sum = 0;
+  loop(l,
+    sum += b[s+i];
+    i += 1;
+  );
+  (sum & 0x80) | ((sum & 0x7F) ~ 0x7F);
+);
+
+send_sh201_request ?
+(
+  0[0] = 0xF0;
+  0[1] = 0x41;
+  0[2] = 0x10;
+  0[3] = 0x00;
+  0[4] = 0x00;
+  0[5] = 0x16;
+  0[6] = 0x11; // command ID
+  0[7] = 0x10; // address ...
+  0[8] = 0x00;
+  0[9] = 0x01;
+  0[10] = 0x00; // end of address
+  0[11] = 0x00; // size ...
+  0[12] = 0x00;
+  0[13] = 0x00;
+  0[14] = 0x40; // end of size
+  0[15] = sh201_sum(0, 7, 8);
+  0[16] = 0xF7;
+  result = midisend_buf(0, 0, 17);
+  send_sh201_request = 0;
+);
+
+send_emx_request ?
+(
+  0[0] = 0xF0;
+  0[1] = 0x42;
+  0[2] = 0x30;
+  0[3] = 0x69;
+  0[4] = 0x10;
+  0[5] = 0xF7;
+  result = midisend_buf(0, 0, 6);
+  send_emx_request = 0;
+);
+
+@gfx
+gfx_x = 0; gfx_y = 0;
+gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+gfx_drawnumber(last_recv, 0);
+
+while((key = gfx_getchar()) > 0)
+(
+  key == '1' ? send_sh201_request = 1;
+  key == '2' ? send_emx_request = 1;
+);
+
+gfx_drawnumber(send_sh201_request, 0);
+gfx_drawnumber(send_emx_request, 0);

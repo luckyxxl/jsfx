@@ -1,0 +1,73 @@
+desc:sh201_dump
+
+@init
+tmp_buf = 0; tmp_buf_size = 128;
+patch_buf = tmp_buf + tmp_buf_size;
+
+@serialize
+file_var(0, patch_size);
+file_mem(0, patch_buf, patch_size);
+
+@block
+function checksum(b, s, l) local(i, sum)
+(
+  i = 0;
+  sum = 0;
+  loop(l,
+    sum += b[s+i];
+    i += 1;
+  );
+  (sum & 0x80) | ((sum & 0x7F) ~ 0x7F) + 1;
+);
+
+while((recv = midirecv_buf(offset, tmp_buf, tmp_buf_size)) > 0)
+(
+  recv > 12 && tmp_buf[0] == 0xF0 && tmp_buf[1] == 0x41 && tmp_buf[2] == 0x10 && tmp_buf[3] == 0x00 && tmp_buf[4] == 0x00 && tmp_buf[5] == 0x16 && tmp_buf[6] == 0x12 ?
+  (
+    a = tmp_buf[7] << 24 | tmp_buf[8] << 16 | tmp_buf[9] << 8 | tmp_buf[10];
+    s = recv - 13;
+    
+    patch_buf[patch_size+0] = a;
+    patch_buf[patch_size+1] = s;
+    memcpy(patch_buf+patch_size+2, temp_buf+11, s);
+    patch_size += 2 + s;
+  );
+  last_recv = recv;
+);
+
+do_send ?
+(
+  tmp_buf[0] = 0xF0;
+  tmp_buf[1] = 0x41;
+  tmp_buf[2] = 0x10;
+  tmp_buf[3] = 0x00;
+  tmp_buf[4] = 0x00;
+  tmp_buf[5] = 0x16;
+  tmp_buf[6] = 0x11;
+  tmp_buf[7] = 0x10; // start of address
+  tmp_buf[8] = 0x00;
+  tmp_buf[9] = 0x00;
+  tmp_buf[10] = 0x00; // end of address
+  tmp_buf[11] = 0x10; // start of size
+  tmp_buf[12] = 0x00;
+  tmp_buf[13] = 0x00;
+  tmp_buf[14] = 0x00; // end of size
+  tmp_buf[15] = checksum(tmp_buf, 7, 8);
+  tmp_buf[16] = 0xF7;
+  midisend_buf(0, 0, 17);
+  do_send = 0;
+
+  patch_size = 0;
+);
+
+@gfx
+gfx_x = 0; gfx_y = 0;
+gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+gfx_drawnumber(a, 0);
+gfx_x += 10;
+gfx_drawnumber(s, 0);
+
+while((key = gfx_getchar()) > 0)
+(
+  key == '1' ? do_send = 1;
+);
