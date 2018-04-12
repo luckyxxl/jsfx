@@ -1,0 +1,31 @@
+desc:midi note hold (poly)
+
+@init
+d=0;
+l=0;
+
+@block
+while(midirecv(o, m0, m1, m2))
+(
+  m0 & 0xf0 == 0x90 ?
+  (
+    d == 0 ? while(l)
+    (
+      l -= 1;
+      midisend(o, 0[2*l]&0xe0, 1[2*l], 0);
+    );
+    
+    d += 1;
+    
+    0[2*l] = m0;
+    1[2*l] = m1;
+    l += 1;
+    
+    midisend(o, m0, m1, m2);
+  )
+  : m0 & 0xf0 == 0x80 ?
+  (
+    d -= 1;
+  )
+  : midisend(o, m0, m1, m2);
+);
