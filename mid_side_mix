@@ -1,0 +1,15 @@
+desc:Mid/Side Mix
+
+slider1:100<0,400,1>M
+slider2:100<0,400,1>S
+
+@sample
+m = 0.5 * (spl0 + spl1);
+s = 0.5 * (spl0 - spl1);
+
+m *= slider1 / 100;
+s *= slider2 / 100;
+
+spl0 = m + s;
+spl1 = m - s;
+
