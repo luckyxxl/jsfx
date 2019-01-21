@@ -1,0 +1,14 @@
+desc:Mono Downmix
+
+slider1:0<0,100,1>Percent
+
+@sample
+b = slider1 / 100 * 0.5;
+a = 1 - b;
+
+ospl0 = spl0;
+ospl1 = spl1;
+
+spl0 = ospl0 * a + ospl1 * b;
+spl1 = ospl1 * a + ospl0 * b;
+

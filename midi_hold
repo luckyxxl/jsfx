@@ -5,15 +5,20 @@ d=0;
 l=0;
 
 @block
+function all_notes_off()
+(
+  while(l)
+  (
+    l -= 1;
+    midisend(o, 0[2*l]&0xe0, 1[2*l], 0);
+  );
+);
+
 while(midirecv(o, m0, m1, m2))
 (
   m0 & 0xf0 == 0x90 ?
   (
-    d == 0 ? while(l)
-    (
-      l -= 1;
-      midisend(o, 0[2*l]&0xe0, 1[2*l], 0);
-    );
+    d == 0 ? all_notes_off();
     
     d += 1;
     
@@ -26,6 +31,10 @@ while(midirecv(o, m0, m1, m2))
   : m0 & 0xf0 == 0x80 ?
   (
     d -= 1;
+  )
+  : m0 & 0xf0 == 0xb0 && m1 == 123 && m2 == 0 ?
+  (
+    all_notes_off();
   )
   : midisend(o, m0, m1, m2);
 );

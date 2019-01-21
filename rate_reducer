@@ -6,7 +6,6 @@ slider3:decaymode=0<0,2,1{None,Pulse,Saw}>Decay Mode
 slider4:decaytime=1<1,500,1>Decay Time
 
 @slider
-timer = 0;
 channels = 0;
 channels[0] = 2;
 channels[1] = 130;
