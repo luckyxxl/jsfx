@@ -1,0 +1,30 @@
+desc: MIDI note filter
+
+slider1:0<0,1,1{filter,gate}>mode
+slider2:36<0,127,1>note
+
+@block
+while(midirecv(offset,msg1,msg2,msg3))
+(
+  last = msg2;
+
+  filtered = 0;
+
+  ((msg1 & 0xF0) == 0x80) || ((msg1 & 0xF0) == 0x90) ?
+  (
+    (slider1 == 0) && (msg2 & 0x7F == slider2) ? filtered = 1;
+    (slider1 == 1) && (msg2 & 0x7F != slider2) ? filtered = 1;
+  );
+
+  !filtered ? midisend(offset, msg1, msg2, msg3);
+);
+
+@gfx 100 10
+sprintf(text, "last: %3d", last);
+gfx_measurestr(text, text_w, text_h);
+
+gfx_set(0.7, 0.7, 0.7);
+gfx_rect(0, 0, gfx_w, gfx_h);
+gfx_set(0, 0, 0);
+gfx_x=gfx_w-text_w-5; gfx_y=0;
+gfx_drawstr(text);
