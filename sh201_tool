@@ -1,0 +1,67 @@
+desc:SH-201 tool
+
+@init
+
+midi_buffer = 0;
+storage = 1024;
+
+
+@block
+
+function checksum(start, count)
+local(sum, i)
+(
+  sum = 0; i = 0;
+  loop(count, sum += start[i]; i += 1;);
+  128 - (sum & 0x7F);
+);
+
+function request_data(address, size)
+(
+  midi_buffer[ 0] = 0xF0;
+  midi_buffer[ 1] = 0x41; // id number
+  midi_buffer[ 2] = 0x10; // device id
+  midi_buffer[ 3] = 0x00; // model id
+  midi_buffer[ 4] = 0x00;
+  midi_buffer[ 5] = 0x16;
+  midi_buffer[ 6] = 0x11; // command id
+  midi_buffer[ 7] = (address >> 24) & 0xFF; // address
+  midi_buffer[ 8] = (address >> 16) & 0xFF;
+  midi_buffer[ 9] = (address >>  8) & 0xFF;
+  midi_buffer[10] = (address >>  0) & 0xFF;
+  midi_buffer[11] = (size >> 24) & 0xFF; // size
+  midi_buffer[12] = (size >> 16) & 0xFF;
+  midi_buffer[13] = (size >>  8) & 0xFF;
+  midi_buffer[14] = (size >>  0) & 0xFF;
+  midi_buffer[15] = checksum(midi_buffer+7, 8);
+  midi_buffer[16] = 0xF7;
+  midisend_buf(0, midi_buffer, 17);
+);
+
+receiving & 2 ?
+(
+  receiving = 1;
+  request_data(0x10000000, 0x0000000C);
+);
+
+while((receiving & 1) && (recieved = midirecv_buf(offset, midi_buffer, 65536)))
+(
+  receiving = 0;
+);
+
+
+@gfx
+
+gfx_set(255, 255, 255);
+
+mouse_cap & 1 ? receiving = 2;
+
+gfx_x = 0;
+gfx_y = 0;
+i=0;
+loop(128, gfx_printf("%02x", 0[i]); i+=1;);
+
+gfx_x = 0;
+gfx_y = gfx_texth;
+i=0;
+loop(128, gfx_printf("%c", 0[i]); i+=1;);
