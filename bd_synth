@@ -1,0 +1,90 @@
+desc:BD synth
+
+slider1:base_freq=55<10,100>base freq (default A1)
+slider2:fenv_amplitude=2<0,100>freq env amplitude
+slider3:fenv_velocity=10<1,200>freq env velocity
+slider4:amp=0.5<0,1>amp
+slider5:aenv_velocity=10<1,30>amp env velocity
+slider6:midi_mode=0<0,1,1{single note, follow notes}>midi mode
+slider7:channel=0<0,15,1>midi channel
+slider8:note=36<0,127>midi note (default C2)
+
+@init
+pi = 3.1415926535897931;
+two_pi = 2 * pi;
+
+function reset()
+(
+  this.t = 1e9;
+);
+
+function note_on(offset, note)
+(
+  // https://glassarmonica.com/science/frequency_midi.php
+  this.f = base_freq * (midi_mode == 0 ? 1 : 2 ^ ((note - 33) / 12));
+  this.t = -offset/srate;
+  this.p = 0;
+);
+
+function fenv(t)
+(
+  1 + fenv_amplitude * exp(-t * fenv_velocity);
+);
+
+function aenv(t)
+(
+  exp(-t * aenv_velocity);
+);
+
+voice0.reset();
+
+@block
+
+while(midirecv(offset, msg1, msg2, msg3))
+(
+  ((msg1 & 0x0F) == channel &&
+  ((msg1 & 0xF0) == 0x90 || (msg1 & 0xF0) == 0x80) &&
+  (midi_mode == 0 ? (msg2 & 0x7F) == note : 1)) ?
+  (
+    (msg1 & 0xF0) == 0x90 ? voice0.note_on(offset, msg2 & 0x7F);
+  )
+  : midisend(offset, msg1, msg2, msg3);
+);
+
+@sample
+
+function run()
+(
+  this.t += 1/srate;
+  this.t < 0 || this.t >= 1e9 ? 0 :
+  (
+    this.p += (this.f * fenv(this.t)) / srate;
+    this.p -= floor(this.p);
+    sin(this.p * two_pi) * amp * aenv(this.t);
+  );
+);
+
+spl0 = spl1 = voice0.run();
+
+@gfx
+
+draw_time = log(1e2)/aenv_velocity; // solve aenv(t) == 1/1e2
+draw_f_ymax = fenv(0);
+draw_a_ymax = 1;
+
+gfx_set(64, 64, 64);
+gfx_x = 0;
+//TODO: grid
+
+function point_y(v)
+(
+  (1.0 - v) * gfx_h;
+);
+
+gfx_set(255, 0, 0);
+gfx_x = 0; gfx_y = point_y(fenv(0) / draw_f_ymax);
+loop(128, gfx_lineto(gfx_x+gfx_w/128, point_y(fenv((gfx_x+gfx_w/128)/gfx_w * draw_time) / draw_f_ymax)));
+
+gfx_set(0, 255, 0);
+gfx_x = 0; gfx_y = point_y(aenv(0) / draw_a_ymax);
+loop(128, gfx_lineto(gfx_x+gfx_w/128, point_y(aenv((gfx_x+gfx_w/128)/gfx_w * draw_time) / draw_a_ymax)));
